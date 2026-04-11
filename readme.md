@@ -45,3 +45,76 @@ A compact, hanging plotter that draws on a board by moving a pen carriage vertic
 ## Resources
 
 * [List of drawing robots](https://github.com/msurguy/awesome-drawing-robots)
+* [l293D shield tutorial](https://lastminuteengineers.com/l293d-motor-driver-shield-arduino-tutorial/)
+
+## Connection test firmware
+
+The firmware in [src/main.cpp](src/main.cpp) is a short hardware check for:
+
+* left stepper on shield stepper port 1 (`M1 + M2`)
+* right stepper on shield stepper port 2 (`M3 + M4`)
+* servo on the shield servo header for `D10`
+
+What the test does:
+
+* centers the servo, then moves it to two safe pulse-width positions and back to center
+* jogs the left stepper forward and backward
+* jogs the right stepper forward and backward
+* jogs both steppers together forward and backward
+* releases the stepper coils between moves to limit heating
+
+Run the test with the belt or carriage load removed if possible. Open the serial monitor at `115200` baud to follow the sequence.
+
+## Powering the test
+
+### Important electrical limit
+
+The `L293D` shield in this project is **not a good long-term driver** for the listed `NEMA-17 KS42STH40-1204A` motors. The motors are rated for `1.2 A/phase`, while one `L293D` bridge is only about `0.6 A` continuous and the shield has **no current limiting**. Use the included test only as a brief connection check at low speed. If the motors get hot quickly, chatter loudly, or the shield overheats, cut power immediately.
+
+### Recommended test power setup
+
+Use two power sources during bring-up:
+
+* `Arduino Uno`: power from `USB`
+* `Motor shield EXT_PWR`: separate `4.5 V to 5 V DC` supply, current capability at least `2 A`
+* `PWR jumper`: `OFF` / removed
+
+Why this is the safest setup for this shield:
+
+* the Arduino stays on a stable USB supply while the steppers inject noise into the motor supply
+* the shield motor supply is isolated from the Arduino input path
+* `4.5-5 V` is the lowest practical range supported by the shield's motor terminal and is less aggressive than `7.5-12 V` for these low-resistance motors
+
+### EXT_PWR with Arduino powered separately
+
+This is the mode you should use for the test.
+
+* Connect the adjustable adapter `+` and `-` to the shield `EXT_PWR` screw terminal.
+* Set the adapter to `4.5 V` first. If the motors only buzz and do not move, try `5 V`, but do not go higher for this shield-and-motor combination.
+* Keep the `PWR` jumper removed.
+* Keep the Uno connected to `USB` for logic power and uploading.
+
+### EXT_PWR with Arduino board sharing the same motor supply
+
+This is **not recommended** for this project.
+
+* On this style of shield, the `PWR` jumper ties the motor supply rail to the Arduino power input path.
+* Sharing that supply makes brownouts and resets more likely when the steppers start or when the servo moves.
+* It also pushes you toward a higher shared input voltage for the Uno, which is exactly what these low-resistance steppers should avoid on an `L293D` shield.
+
+If you still want a single-supply setup for experimentation, do it only briefly and monitor temperature closely. The better fix is to switch the steppers to a current-limited driver such as `A4988`, `DRV8825`, or another suitable stepper driver.
+
+### PWR jumper summary
+
+* `PWR jumper OFF`: use when `EXT_PWR` feeds only the motors and the Arduino is powered separately. This is the preferred test setup.
+* `PWR jumper ON`: ties the motor power rail to the Arduino power path. Avoid this here unless you fully understand the shield wiring and accept the reset/overcurrent risk.
+
+## Expected result
+
+If all three actuators are connected correctly:
+
+* the servo moves to center, one side, the other side, then back to center
+* each stepper turns a small amount in one direction and then returns
+* both steppers then turn together in the same direction and return
+
+If one stepper moves in the wrong direction, reverse one coil pair on that motor connector or swap `FORWARD` and `BACKWARD` in [src/main.cpp](src/main.cpp).
