@@ -1,0 +1,58 @@
+project:
+  name: Vertical Plotter Machine
+  description: >-
+    A compact, hanging plotter that draws on a board by moving a pen carriage
+    vertically and controlling pen.
+
+parts:
+  - name: Arduino Uno R3
+    quantity: 1
+    note: AVR ATMEL
+    specs: []
+
+  - name: L293D Motor Driver Shield Stepper Motor Driver
+    quantity: 1
+    note: copy of Adafruit Motor Shield v1
+    specs:
+      - 2x L293D driver IC
+      - 1x 74HC595 shift register
+      - motor power supply terminal 4.5-25VDC
+      - power supply selection PWR jumper
+      - 4x H bridges; per bridge provides 0.6A (1.2A peak current) with thermal protection, can run motors on 4.5V to 12V DC
+
+  - name: SG92R Micro Servo Motor
+    quantity: 1
+    note: working voltage 4.8-6.0 V
+    specs:
+      - working voltage 4.8-6.0V
+      - 180 degree at PWM 500-2500µs
+      - 90 degree at PWM 1000-2000µs
+      - pulse width range 500-2500µs
+      - neutral position 1500µs
+
+  - name: NEMA-17 Stepper Motor KS42STH40-1204A
+    quantity: 2
+    note: phase current: 1.2A
+    specs:
+      - phase current: 1.2A
+      - phase resistance: 1.7 ohm
+      - standard voltage: 2V with active current limiting built-in and allow for the motors to be driven from voltages much higher than their rated voltage
+      - 4-wire bipolar operation
+
+  - name: AC to DC Adapter for power supply
+    quantity: 1
+    note: current: 2A
+    specs:
+      - output current: 2A max
+      - wattage: 24 watts
+      - adjustable DC output voltage: 3V 4.5V 5V 6V 7.5V 9V 12V
+
+  - name: Timing Belt Pulley
+    quantity: 2
+    note: ''
+    specs: []
+
+  - name: Timing Belt 6mm
+    quantity: 1
+    note: ''
+    specs: []
