@@ -46,6 +46,7 @@ A compact, hanging plotter that draws on a board by moving a pen carriage vertic
 
 * [List of drawing robots](https://github.com/msurguy/awesome-drawing-robots)
 * [l293D shield tutorial](https://lastminuteengineers.com/l293d-motor-driver-shield-arduino-tutorial/)
+* [example project operating on g-code files](https://www.instructables.com/Polargraph-Wall-Draw-Bot-2023/) using [grbl fork](https://github.com/john4242/grbl-polargraph)
 
 ## Connection test firmware
 
