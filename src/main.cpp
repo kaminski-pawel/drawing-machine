@@ -17,12 +17,6 @@ namespace
   AF_Stepper rightMotor(kStepsPerRevolution, 2);
   Servo penServo;
 
-  void releaseAllMotors()
-  {
-    leftMotor.release();
-    rightMotor.release();
-  }
-
   void stepMotor(const __FlashStringHelper *label,
                  AF_Stepper &motor,
                  uint16_t steps,
@@ -46,7 +40,8 @@ namespace
       delay(15);
     }
 
-    releaseAllMotors();
+    leftMotor.release();
+    rightMotor.release();
     delay(kPauseMs);
   }
 
@@ -71,7 +66,8 @@ void setup()
 
   leftMotor.setSpeed(kStepperRpm);
   rightMotor.setSpeed(kStepperRpm);
-  releaseAllMotors();
+  leftMotor.release();
+  rightMotor.release();
 
   Serial.println(F("Test starts in 2 seconds..."));
   delay(2000);
