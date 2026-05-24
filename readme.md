@@ -119,3 +119,7 @@ If all three actuators are connected correctly:
 * both steppers then turn together in the same direction and return
 
 If one stepper moves in the wrong direction, reverse one coil pair on that motor connector or swap `FORWARD` and `BACKWARD` in [src/main.cpp](src/main.cpp).
+
+## TODO
+
+* Consider compact binary frames over serial. For now I've opted for text GCode-like over serial, as it is more readable (debuggable). Binary will be smaller and faster, though. 
