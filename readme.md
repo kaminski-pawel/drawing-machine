@@ -120,6 +120,67 @@ If all three actuators are connected correctly:
 
 If one stepper moves in the wrong direction, reverse one coil pair on that motor connector or swap `FORWARD` and `BACKWARD` in [src/main.cpp](src/main.cpp).
 
+## Kinematics
+
+```
+A (0,0) ──────── W ──────── B (W,0)
+ \                          /
+  \  La                Lb  /
+   \                      /
+    \                    /
+     P (x, y)
+```
+
+Motor A is at the top-left corner `(0, 0)`, motor B at `(W, 0)`, y increases downward.
+
+### Inverse kinematics — position to belt lengths
+
+Given target pen position `(x, y)`:
+
+```
+La = sqrt(x² + y²)
+Lb = sqrt((W − x)² + y²)
+```
+
+Convert to motor steps: `steps = round(length × STEPS_PER_MM)`
+
+### Forward kinematics — belt lengths to position
+
+Given belt lengths `La` and `Lb`:
+
+```
+x = (La² − Lb² + W²) / (2 × W)
+y = sqrt(La² − x²)
+```
+
+## First home position experiment
+
+An early experiment to verify the geometry — not a final calibration.
+
+### Measured dimensions
+
+| Parameter | Value |
+| --------- | ----- |
+| `W` — motor axle to axle | 230 mm |
+| `La` — left belt at home | 125 mm |
+| `Lb` — right belt at home | 140 mm |
+
+### Calculated home position
+
+Applying the forward kinematics above:
+
+```
+x = (125² − 140² + 230²) / (2 × 230)
+  = (15625 − 19600 + 52900) / 460
+  ≈ 106 mm
+
+y = sqrt(125² − 106²)
+  = sqrt(4389)
+  ≈ 66 mm
+```
+
+Pen starts at approximately `(106 mm, 66 mm)` from the left motor.
+
 ## TODO
 
 * Consider compact binary frames over serial. For now I've opted for text GCode-like over serial, as it is more readable (debuggable). Binary will be smaller and faster, though. 
