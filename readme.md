@@ -15,8 +15,8 @@ A compact, hanging plotter that draws on a board by moving a pen carriage vertic
 | SG92R Micro Servo Motor                                    | working voltage 4.8-6.0 V  | 1   |
 | NEMA-17 Stepper Motor KS42STH40-1204A                      | phase current: 1.2A        | 2   |
 | AC to DC Adapter for power supply                          | current: 2A                | 1   |
-| Timing Belt Pulley                                         |                            | 2   |
-| Timing Belt 6mm                                            |                            | 1   |
+| Timing Belt Pulley GT2 20-tooth 5mm Bore Aluminium        | 6mm wide, 2mm pitch        | 2   |
+| Timing Belt GT2 6mm                                        | 2mm pitch                  | 1   |
 
 ### Detailed Specification
 
