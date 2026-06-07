@@ -19,3 +19,9 @@ Step 3. Stream GCode line-by-line to MC.
 ```
 
 ```
+
+You can run tests with
+
+```
+python -m unittest discover -s test -p 'test_*.py'
+```
