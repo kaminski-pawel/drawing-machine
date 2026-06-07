@@ -1,11 +1,54 @@
 """Stream a GCode-like text file to an Arduino over serial, line by line."""
 
 from __future__ import annotations
+
 import argparse
+import dataclasses
 import pathlib
 import serial
 import sys
 import time
+import tomllib
+import typing as t
+
+
+@dataclasses.dataclass(frozen=True)
+class Config:
+    port: str
+    baud: int
+    startup_delay_ms: int
+    read_timeout_ms: int
+    continue_on_arduino_error: bool
+
+
+def load_config(config_path: pathlib.Path) -> Config:
+    with config_path.open("rb") as file_obj:
+        raw_config: dict[str, t.Any] = tomllib.load(file_obj)
+
+    port_raw: t.Any = raw_config.get("port")
+    baud_raw: t.Any = raw_config.get("baud")
+    startup_delay_raw: t.Any = raw_config.get("startup_delay_ms")
+    read_timeout_raw: t.Any = raw_config.get("read_timeout_ms")
+    continue_on_error_raw: t.Any = raw_config.get("continue_on_arduino_error")
+
+    if not isinstance(port_raw, str) or not port_raw.strip():
+        raise ValueError("Config key 'port' must be a non-empty string.")
+    if not isinstance(baud_raw, int) or baud_raw <= 0:
+        raise ValueError("Config key 'baud' must be a positive integer.")
+    if not isinstance(startup_delay_raw, int) or startup_delay_raw < 0:
+        raise ValueError("Config key 'startup_delay_ms' must be an integer >= 0.")
+    if not isinstance(read_timeout_raw, int) or read_timeout_raw <= 0:
+        raise ValueError("Config key 'read_timeout_ms' must be a positive integer.")
+    if not isinstance(continue_on_error_raw, bool):
+        raise ValueError("Config key 'continue_on_arduino_error' must be a boolean.")
+
+    return Config(
+        port=port_raw,
+        baud=baud_raw,
+        startup_delay_ms=startup_delay_raw,
+        read_timeout_ms=read_timeout_raw,
+        continue_on_arduino_error=continue_on_error_raw,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -14,27 +57,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("file_path", type=pathlib.Path, help="Path to GCode text file")
     parser.add_argument(
-        "--port",
-        default="COM3",
-        help="Serial port (for example COM3, /dev/ttyACM0, /dev/ttyUSB0)",
-    )
-    parser.add_argument("--baud", type=int, default=115200, help="Serial baud rate")
-    parser.add_argument(
-        "--startup-delay-ms",
-        type=int,
-        default=2000,
-        help="Delay after opening serial port to allow Arduino reset",
-    )
-    parser.add_argument(
-        "--read-timeout-ms",
-        type=int,
-        default=3000,
-        help="Read and write timeout in milliseconds",
-    )
-    parser.add_argument(
-        "--continue-on-arduino-error",
-        action="store_true",
-        help="Warn and continue when Arduino responds with ERR",
+        "-c",
+        "--config",
+        type=pathlib.Path,
+        default=pathlib.Path("scripts_cfg.toml"),
+        help="Path to config TOML file",
     )
     return parser.parse_args()
 
@@ -50,34 +77,30 @@ def normalized_command(raw_line: str) -> str:
 
 def stream_gcode(
     file_path: pathlib.Path,
-    port: str,
-    baud: int,
-    startup_delay_ms: int,
-    read_timeout_ms: int,
-    continue_on_arduino_error: bool,
+    config: Config,
 ) -> int:
     if not file_path.exists():
         raise FileNotFoundError(f"GCode file not found: {file_path}")
 
     resolved_path = file_path.resolve()
-    timeout_seconds = read_timeout_ms / 1000.0
+    timeout_seconds = config.read_timeout_ms / 1000.0
     sent_count = 0
     line_number = 0
 
     try:
         with serial.Serial(
-            port=port,
-            baudrate=baud,
+            port=config.port,
+            baudrate=config.baud,
             timeout=timeout_seconds,
             write_timeout=timeout_seconds,
             bytesize=serial.EIGHTBITS,
             parity=serial.PARITY_NONE,
             stopbits=serial.STOPBITS_ONE,
         ) as ser:
-            time.sleep(startup_delay_ms / 1000.0)
+            time.sleep(config.startup_delay_ms / 1000.0)
             ser.reset_input_buffer()
 
-            print(f"Streaming '{resolved_path}' to {port} at {baud} baud...")
+            print(f"Streaming '{resolved_path}' to {config.port} at {config.baud} baud...")
 
             with resolved_path.open("r", encoding="utf-8") as gcode_file:
                 for raw_line in gcode_file:
@@ -102,7 +125,7 @@ def stream_gcode(
                             f"Arduino error at line {line_number}: {line}\n"
                             f"Response: {response}"
                         )
-                        if continue_on_arduino_error:
+                        if config.continue_on_arduino_error:
                             print(f"WARNING: {message}", file=sys.stderr)
                             continue
                         raise RuntimeError(message)
@@ -110,20 +133,18 @@ def stream_gcode(
             print(f"Done. Sent {sent_count} commands from {line_number} input lines.")
             return 0
     except serial.SerialException as exc:
-        raise RuntimeError(f"Serial communication error on {port}: {exc}") from exc
+        raise RuntimeError(f"Serial communication error on {config.port}: {exc}") from exc
 
 
 def main() -> int:
     args = parse_args()
+    config_path: pathlib.Path = args.config
+    config = load_config(config_path)
 
     try:
         return stream_gcode(
             file_path=args.file_path,
-            port=args.port,
-            baud=args.baud,
-            startup_delay_ms=args.startup_delay_ms,
-            read_timeout_ms=args.read_timeout_ms,
-            continue_on_arduino_error=args.continue_on_arduino_error,
+            config=config,
         )
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

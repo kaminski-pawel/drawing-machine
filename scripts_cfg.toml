@@ -1,0 +1,21 @@
+# image_to_svg
+threshold = 127
+stroke_width = 1.0
+
+# svg_to_gcode
+machine_width_mm = 230.0
+machine_height_mm = 230.0
+margin_mm = 0.0
+travel_feed_mm_min = 2500.0
+draw_feed_mm_min = 1200.0
+pen_up_us = 1100
+pen_down_us = 1700
+curve_segments = 20
+max_segment_mm = 2.0
+
+# send_gcode
+port = "COM3"
+baud = 115200
+startup_delay_ms = 2000
+read_timeout_ms = 3000
+continue_on_arduino_error = false

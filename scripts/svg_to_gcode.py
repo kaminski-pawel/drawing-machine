@@ -26,10 +26,11 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import math
+import pathlib
 import re
 import sys
+import tomllib
 import xml.etree.ElementTree as ET
-import pathlib
 import typing as t
 
 
@@ -47,7 +48,7 @@ class Point:
 
 
 @dataclasses.dataclass
-class PlotterConfig:
+class Config:
     """Machine and conversion settings used for SVG->command translation."""
 
     machine_width_mm: float
@@ -61,32 +62,67 @@ class PlotterConfig:
     max_segment_mm: float
 
 
-DISTANCE_BETWEEN_STEPPERS_IN_MM = 230.0 # mm
+def load_config(config_path: pathlib.Path) -> Config:
+    with config_path.open("rb") as file_obj:
+        raw_config: dict[str, t.Any] = tomllib.load(file_obj)
+
+    machine_width_raw: t.Any = raw_config.get("machine_width_mm")
+    machine_height_raw: t.Any = raw_config.get("machine_height_mm")
+    margin_raw: t.Any = raw_config.get("margin_mm")
+    travel_feed_raw: t.Any = raw_config.get("travel_feed_mm_min")
+    draw_feed_raw: t.Any = raw_config.get("draw_feed_mm_min")
+    pen_up_raw: t.Any = raw_config.get("pen_up_us")
+    pen_down_raw: t.Any = raw_config.get("pen_down_us")
+    curve_segments_raw: t.Any = raw_config.get("curve_segments")
+    max_segment_raw: t.Any = raw_config.get("max_segment_mm")
+
+    if not isinstance(machine_width_raw, (int, float)) or float(machine_width_raw) <= 0:
+        raise ValueError("Config key 'machine_width_mm' must be a positive number.")
+    if not isinstance(machine_height_raw, (int, float)) or float(machine_height_raw) <= 0:
+        raise ValueError("Config key 'machine_height_mm' must be a positive number.")
+    if not isinstance(margin_raw, (int, float)) or float(margin_raw) < 0:
+        raise ValueError("Config key 'margin_mm' must be a non-negative number.")
+    if not isinstance(travel_feed_raw, (int, float)) or float(travel_feed_raw) <= 0:
+        raise ValueError("Config key 'travel_feed_mm_min' must be a positive number.")
+    if not isinstance(draw_feed_raw, (int, float)) or float(draw_feed_raw) <= 0:
+        raise ValueError("Config key 'draw_feed_mm_min' must be a positive number.")
+    if not isinstance(pen_up_raw, int) or pen_up_raw <= 0:
+        raise ValueError("Config key 'pen_up_us' must be a positive integer.")
+    if not isinstance(pen_down_raw, int) or pen_down_raw <= 0:
+        raise ValueError("Config key 'pen_down_us' must be a positive integer.")
+    if not isinstance(curve_segments_raw, int) or curve_segments_raw < 3:
+        raise ValueError("Config key 'curve_segments' must be an integer >= 3.")
+    if not isinstance(max_segment_raw, (int, float)) or float(max_segment_raw) <= 0:
+        raise ValueError("Config key 'max_segment_mm' must be a positive number.")
+
+    return Config(
+        machine_width_mm=float(machine_width_raw),
+        machine_height_mm=float(machine_height_raw),
+        margin_mm=float(margin_raw),
+        travel_feed_mm_min=float(travel_feed_raw),
+        draw_feed_mm_min=float(draw_feed_raw),
+        pen_up_us=pen_up_raw,
+        pen_down_us=pen_down_raw,
+        curve_segments=curve_segments_raw,
+        max_segment_mm=float(max_segment_raw),
+    )
 
 
-def parse_args(argv: t.Sequence[str]) -> argparse.Namespace:
+def parse_args() -> argparse.Namespace:
     """Parse command line options for the converter."""
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input_svg", type=pathlib.Path, help="Path to input SVG file")
     parser.add_argument("output_gcode", type=pathlib.Path, help="Path to output text file")
-
-    parser.add_argument("--machine-width-mm", type=float, default=DISTANCE_BETWEEN_STEPPERS_IN_MM)
-    parser.add_argument("--machine-height-mm", type=float, default=DISTANCE_BETWEEN_STEPPERS_IN_MM)
-    parser.add_argument("--margin-mm", type=float, default=0.0)
-    parser.add_argument("--travel-feed", type=float, default=2500.0, help="Travel feed in mm/min")
-    parser.add_argument("--draw-feed", type=float, default=1200.0, help="Draw feed in mm/min")
-    parser.add_argument("--pen-up-us", type=int, default=1100, help="Servo pulse for pen-up")
-    parser.add_argument("--pen-down-us", type=int, default=1700, help="Servo pulse for pen-down")
-    parser.add_argument("--curve-segments", type=int, default=20, help="Segments per bezier curve")
     parser.add_argument(
-        "--max-segment-mm",
-        type=float,
-        default=2.0,
-        help="Resample long lines so each output segment is <= this length",
+        "-c",
+        "--config",
+        type=pathlib.Path,
+        default=pathlib.Path("scripts_cfg.toml"),
+        help="Path to config TOML file",
     )
 
-    return parser.parse_args(argv)
+    return parser.parse_args()
 
 
 def strip_unit(value: str) -> float:
@@ -392,7 +428,7 @@ def bounds(polylines: t.Sequence[t.Sequence[Point]]) -> t.Tuple[float, float, fl
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def fit_to_machine(polylines: t.Sequence[t.Sequence[Point]], cfg: PlotterConfig) -> list[list[Point]]:
+def fit_to_machine(polylines: t.Sequence[t.Sequence[Point]], cfg: Config) -> list[list[Point]]:
     """
     Fit SVG geometry uniformly into the configured machine drawing rectangle.
 
@@ -464,7 +500,7 @@ def xy_to_lengths(x: float, y: float, machine_width_mm: float) -> t.Tuple[float,
     return left, right
 
 
-def emit_commands(polylines_mm: t.Sequence[t.Sequence[Point]], cfg: PlotterConfig) -> list[str]:
+def emit_commands(polylines_mm: t.Sequence[t.Sequence[Point]], cfg: Config) -> list[str]:
     """Generate the final GCode-like command lines."""
 
     out: list[str] = []
@@ -494,7 +530,7 @@ def emit_commands(polylines_mm: t.Sequence[t.Sequence[Point]], cfg: PlotterConfi
     return out
 
 
-def main(argv: t.Sequence[str]) -> int:
+def main() -> int:
     """
     End-to-end conversion pipeline.
 
@@ -506,19 +542,9 @@ def main(argv: t.Sequence[str]) -> int:
     5) Emit simple GCode-like lines and write output file.
     """
 
-    args = parse_args(argv)
-
-    cfg = PlotterConfig(
-        machine_width_mm=args.machine_width_mm,
-        machine_height_mm=args.machine_height_mm,
-        margin_mm=args.margin_mm,
-        travel_feed_mm_min=args.travel_feed,
-        draw_feed_mm_min=args.draw_feed,
-        pen_up_us=args.pen_up_us,
-        pen_down_us=args.pen_down_us,
-        curve_segments=max(3, args.curve_segments),
-        max_segment_mm=max(0.1, args.max_segment_mm),
-    )
+    args = parse_args()
+    config_path: pathlib.Path = args.config
+    cfg = load_config(config_path)
 
     try:
         raw_lines = svg_to_polylines(args.input_svg, curve_segments=cfg.curve_segments)
@@ -538,4 +564,4 @@ def main(argv: t.Sequence[str]) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main())

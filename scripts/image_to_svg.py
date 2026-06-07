@@ -112,7 +112,7 @@ def parse_args() -> argparse.Namespace:
         "-c",
         "--config",
         type=pathlib.Path,
-        default=pathlib.Path("config.toml"),
+        default=pathlib.Path("scripts_cfg.toml"),
         help="Path to config TOML file",
     )
     return parser.parse_args()
