@@ -1,28 +1,26 @@
 from __future__ import annotations
 
 import argparse
-import tomllib
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-
 import cv2
+import dataclasses
+import pathlib
 import numpy as np
-from numpy.typing import NDArray
+import typing as t
+import tomllib
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Config:
     threshold: int
     stroke_width: float
 
 
-def load_config(config_path: Path) -> Config:
+def load_config(config_path: pathlib.Path) -> Config:
     with config_path.open("rb") as file_obj:
-        raw_config: dict[str, Any] = tomllib.load(file_obj)
+        raw_config: dict[str, t.Any] = tomllib.load(file_obj)
 
-    threshold_raw: Any = raw_config.get("threshold")
-    stroke_width_raw: Any = raw_config.get("stroke_width")
+    threshold_raw: t.Any = raw_config.get("threshold")
+    stroke_width_raw: t.Any = raw_config.get("stroke_width")
 
     if not isinstance(threshold_raw, int) or not (0 <= threshold_raw <= 255):
         raise ValueError("Config key 'threshold' must be an integer between 0 and 255.")
@@ -34,9 +32,9 @@ def load_config(config_path: Path) -> Config:
 
 
 def image_to_binary(
-    image_path: Path, threshold: int
-) -> tuple[NDArray[np.uint8], int, int]:
-    image: NDArray[np.uint8] | None = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    image_path: pathlib.Path, threshold: int
+) -> tuple[np.typing.NDArray[np.uint8], int, int]:
+    image: np.typing.NDArray[np.uint8] | None = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         raise ValueError(f"Unable to read image: {image_path}")
 
@@ -52,8 +50,8 @@ def image_to_binary(
     return binary, width, height
 
 
-def contour_to_path_data(contour: NDArray[np.int32]) -> str:
-    points: NDArray[np.int32] = contour.reshape(-1, 2)
+def contour_to_path_data(contour: np.typing.NDArray[np.int32]) -> str:
+    points: np.typing.NDArray[np.int32] = contour.reshape(-1, 2)
     if points.shape[0] == 0:
         return ""
 
@@ -68,7 +66,7 @@ def contour_to_path_data(contour: NDArray[np.int32]) -> str:
 
 
 def contours_to_svg(
-    contours: tuple[NDArray[np.int32], ...],
+    contours: tuple[np.typing.NDArray[np.int32], ...],
     width: int,
     height: int,
     stroke_width: float,
@@ -92,11 +90,11 @@ def contours_to_svg(
     return svg_content
 
 
-def convert_image_to_svg(input_path: Path, output_path: Path, config: Config) -> None:
+def convert_image_to_svg(input_path: pathlib.Path, output_path: pathlib.Path, config: Config) -> None:
     binary, width, height = image_to_binary(input_path, config.threshold)
 
     contours_raw, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    contours: tuple[NDArray[np.int32], ...] = tuple(contours_raw)
+    contours: tuple[np.typing.NDArray[np.int32], ...] = tuple(contours_raw)
 
     svg_data: str = contours_to_svg(contours, width, height, config.stroke_width)
     output_path.write_text(svg_data, encoding="utf-8")
@@ -106,21 +104,21 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Convert PNG/JPEG/JPG images to SVG outlines using contour tracing."
     )
-    parser.add_argument("input", type=Path, help="Input image path (.png, .jpeg, .jpg)")
+    parser.add_argument("input", type=pathlib.Path, help="Input image path (.png, .jpeg, .jpg)")
     parser.add_argument(
-        "-o", "--output", type=Path, default=None, help="Output SVG path"
+        "-o", "--output", type=pathlib.Path, default=None, help="Output SVG path"
     )
     parser.add_argument(
         "-c",
         "--config",
-        type=Path,
-        default=Path("config.toml"),
+        type=pathlib.Path,
+        default=pathlib.Path("config.toml"),
         help="Path to config TOML file",
     )
     return parser.parse_args()
 
 
-def validate_input_extension(path: Path) -> None:
+def validate_input_extension(path: pathlib.Path) -> None:
     allowed_suffixes: set[str] = {".png", ".jpeg", ".jpg"}
     suffix = path.suffix.lower()
     if suffix not in allowed_suffixes:
@@ -131,11 +129,11 @@ def validate_input_extension(path: Path) -> None:
 
 def main() -> None:
     args = parse_args()
-    input_path: Path = args.input
-    output_path: Path = (
+    input_path: pathlib.Path = args.input
+    output_path: pathlib.Path = (
         args.output if args.output is not None else input_path.with_suffix(".svg")
     )
-    config_path: Path = args.config
+    config_path: pathlib.Path = args.config
 
     validate_input_extension(input_path)
     config = load_config(config_path)

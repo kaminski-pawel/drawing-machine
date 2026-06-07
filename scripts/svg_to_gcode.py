@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Convert an SVG drawing into a GCode-like command stream for a two-motor hanging plotter.
 
@@ -25,13 +24,13 @@ The generated file is intentionally simple so firmware can parse it with a tiny 
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import math
 import re
 import sys
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
+import pathlib
+import typing as t
 
 
 # Matches SVG path command letters and numbers, including scientific notation.
@@ -39,7 +38,7 @@ PATH_TOKEN_RE = re.compile(r"[MmLlHhVvCcQqZz]|[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+
 NUMBER_RE = re.compile(r"[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?")
 
 
-@dataclass(frozen=True)
+@dataclasses.dataclass(frozen=True)
 class Point:
     """2D point in Cartesian coordinates."""
 
@@ -47,7 +46,7 @@ class Point:
     y: float
 
 
-@dataclass
+@dataclasses.dataclass
 class PlotterConfig:
     """Machine and conversion settings used for SVG->command translation."""
 
@@ -65,12 +64,12 @@ class PlotterConfig:
 DISTANCE_BETWEEN_STEPPERS_IN_MM = 230.0 # mm
 
 
-def parse_args(argv: Sequence[str]) -> argparse.Namespace:
+def parse_args(argv: t.Sequence[str]) -> argparse.Namespace:
     """Parse command line options for the converter."""
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input_svg", type=Path, help="Path to input SVG file")
-    parser.add_argument("output_gcode", type=Path, help="Path to output text file")
+    parser.add_argument("input_svg", type=pathlib.Path, help="Path to input SVG file")
+    parser.add_argument("output_gcode", type=pathlib.Path, help="Path to output text file")
 
     parser.add_argument("--machine-width-mm", type=float, default=DISTANCE_BETWEEN_STEPPERS_IN_MM)
     parser.add_argument("--machine-height-mm", type=float, default=DISTANCE_BETWEEN_STEPPERS_IN_MM)
@@ -99,7 +98,7 @@ def strip_unit(value: str) -> float:
     return float(match.group(0))
 
 
-def parse_viewbox(root: ET.Element) -> Tuple[float, float, float, float] | None:
+def parse_viewbox(root: ET.Element) -> t.Tuple[float, float, float, float] | None:
     """Return SVG viewBox as (min_x, min_y, width, height), or None if missing."""
 
     vb = root.get("viewBox")
@@ -112,7 +111,7 @@ def parse_viewbox(root: ET.Element) -> Tuple[float, float, float, float] | None:
     return min_x, min_y, width, height
 
 
-def tokenize_path(d: str) -> List[str]:
+def tokenize_path(d: str) -> list[str]:
     """Tokenize SVG path `d` data into command and numeric tokens."""
 
     return PATH_TOKEN_RE.findall(d)
@@ -136,7 +135,7 @@ def quadratic_point(p0: Point, p1: Point, p2: Point, t: float) -> Point:
     return Point(x, y)
 
 
-def parse_path_to_polyline(d: str, curve_segments: int) -> List[List[Point]]:
+def parse_path_to_polyline(d: str, curve_segments: int) -> list[list[Point]]:
     """
     Parse path data and return a list of polyline subpaths.
 
@@ -148,8 +147,8 @@ def parse_path_to_polyline(d: str, curve_segments: int) -> List[List[Point]]:
     i = 0
     cmd = ""
 
-    polylines: List[List[Point]] = []
-    current_polyline: List[Point] = []
+    polylines: list[list[Point]] = []
+    current_polyline: list[Point] = []
 
     current = Point(0.0, 0.0)
     subpath_start = Point(0.0, 0.0)
@@ -289,7 +288,7 @@ def parse_path_to_polyline(d: str, curve_segments: int) -> List[List[Point]]:
     return [line for line in polylines if len(line) > 1]
 
 
-def parse_points_attr(value: str) -> List[Point]:
+def parse_points_attr(value: str) -> list[Point]:
     """Parse SVG points attribute used by polyline/polygon elements."""
 
     numbers = [float(n) for n in NUMBER_RE.findall(value)]
@@ -298,7 +297,7 @@ def parse_points_attr(value: str) -> List[Point]:
     return [Point(numbers[i], numbers[i + 1]) for i in range(0, len(numbers), 2)]
 
 
-def svg_to_polylines(svg_path: Path, curve_segments: int) -> List[List[Point]]:
+def svg_to_polylines(svg_path: pathlib.Path, curve_segments: int) -> list[list[Point]]:
     """
     Extract drawable SVG geometry into polylines.
 
@@ -309,7 +308,7 @@ def svg_to_polylines(svg_path: Path, curve_segments: int) -> List[List[Point]]:
     tree = ET.parse(svg_path)
     root = tree.getroot()
 
-    polylines: List[List[Point]] = []
+    polylines: list[list[Point]] = []
 
     for elem in root.iter():
         tag = elem.tag.split("}")[-1]  # Strip optional XML namespace.
@@ -385,7 +384,7 @@ def svg_to_polylines(svg_path: Path, curve_segments: int) -> List[List[Point]]:
     return polylines
 
 
-def bounds(polylines: Sequence[Sequence[Point]]) -> Tuple[float, float, float, float]:
+def bounds(polylines: t.Sequence[t.Sequence[Point]]) -> t.Tuple[float, float, float, float]:
     """Compute axis-aligned bounds as (min_x, min_y, max_x, max_y)."""
 
     xs = [p.x for line in polylines for p in line]
@@ -393,7 +392,7 @@ def bounds(polylines: Sequence[Sequence[Point]]) -> Tuple[float, float, float, f
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def fit_to_machine(polylines: Sequence[Sequence[Point]], cfg: PlotterConfig) -> List[List[Point]]:
+def fit_to_machine(polylines: t.Sequence[t.Sequence[Point]], cfg: PlotterConfig) -> list[list[Point]]:
     """
     Fit SVG geometry uniformly into the configured machine drawing rectangle.
 
@@ -417,7 +416,7 @@ def fit_to_machine(polylines: Sequence[Sequence[Point]], cfg: PlotterConfig) -> 
     offset_x = cfg.margin_mm + 0.5 * (target_w - draw_w)
     offset_y = cfg.margin_mm + 0.5 * (target_h - draw_h)
 
-    fitted: List[List[Point]] = []
+    fitted: list[list[Point]] = []
     for line in polylines:
         mapped = [Point((p.x - min_x) * scale + offset_x, (p.y - min_y) * scale + offset_y) for p in line]
         fitted.append(mapped)
@@ -430,7 +429,7 @@ def segment_length(a: Point, b: Point) -> float:
     return math.hypot(b.x - a.x, b.y - a.y)
 
 
-def resample_line(line: Sequence[Point], max_segment_mm: float) -> List[Point]:
+def resample_line(line: t.Sequence[Point], max_segment_mm: float) -> list[Point]:
     """
     Split long line segments into shorter pieces for smoother motion control.
 
@@ -440,7 +439,7 @@ def resample_line(line: Sequence[Point], max_segment_mm: float) -> List[Point]:
     if len(line) < 2:
         return list(line)
 
-    sampled: List[Point] = [line[0]]
+    sampled: list[Point] = [line[0]]
     for i in range(1, len(line)):
         a = line[i - 1]
         b = line[i]
@@ -457,7 +456,7 @@ def resample_line(line: Sequence[Point], max_segment_mm: float) -> List[Point]:
     return sampled
 
 
-def xy_to_lengths(x: float, y: float, machine_width_mm: float) -> Tuple[float, float]:
+def xy_to_lengths(x: float, y: float, machine_width_mm: float) -> t.Tuple[float, float]:
     """Convert Cartesian pen coordinate to left/right cable lengths in mm."""
 
     left = math.hypot(x, y)
@@ -465,10 +464,10 @@ def xy_to_lengths(x: float, y: float, machine_width_mm: float) -> Tuple[float, f
     return left, right
 
 
-def emit_commands(polylines_mm: Sequence[Sequence[Point]], cfg: PlotterConfig) -> List[str]:
+def emit_commands(polylines_mm: t.Sequence[t.Sequence[Point]], cfg: PlotterConfig) -> list[str]:
     """Generate the final GCode-like command lines."""
 
-    out: List[str] = []
+    out: list[str] = []
     out.append("; SVG -> dual-stepper cable-length commands")
     out.append(f"; Machine width={cfg.machine_width_mm:.3f}mm height={cfg.machine_height_mm:.3f}mm")
     out.append(f"M300 S{cfg.pen_up_us} ; pen up")
@@ -495,7 +494,7 @@ def emit_commands(polylines_mm: Sequence[Sequence[Point]], cfg: PlotterConfig) -
     return out
 
 
-def main(argv: Sequence[str]) -> int:
+def main(argv: t.Sequence[str]) -> int:
     """
     End-to-end conversion pipeline.
 

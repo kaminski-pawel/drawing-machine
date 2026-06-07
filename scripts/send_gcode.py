@@ -1,27 +1,18 @@
-#!/usr/bin/env python3
 """Stream a GCode-like text file to an Arduino over serial, line by line."""
 
 from __future__ import annotations
-
 import argparse
+import pathlib
+import serial
 import sys
 import time
-from pathlib import Path
-
-try:
-    import serial
-    from serial import SerialException
-except ImportError as exc:  # pragma: no cover - dependency guard
-    raise SystemExit(
-        "Missing dependency 'pyserial'. Install with: pip install pyserial"
-    ) from exc
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Stream GCode to Arduino over a serial port."
     )
-    parser.add_argument("file_path", type=Path, help="Path to GCode text file")
+    parser.add_argument("file_path", type=pathlib.Path, help="Path to GCode text file")
     parser.add_argument(
         "--port",
         default="COM3",
@@ -58,7 +49,7 @@ def normalized_command(raw_line: str) -> str:
 
 
 def stream_gcode(
-    file_path: Path,
+    file_path: pathlib.Path,
     port: str,
     baud: int,
     startup_delay_ms: int,
@@ -118,7 +109,7 @@ def stream_gcode(
 
             print(f"Done. Sent {sent_count} commands from {line_number} input lines.")
             return 0
-    except SerialException as exc:
+    except serial.SerialException as exc:
         raise RuntimeError(f"Serial communication error on {port}: {exc}") from exc
 
 
